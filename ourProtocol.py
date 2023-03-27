@@ -1,11 +1,11 @@
 import random
 
 # my files
-from GKR import GKR
-from GKRProver import GKRProver
-from GKRVerifier import GKRVerifier
-from typing import List
-from multilinear_extension import extend_sparse
+# from GKR import GKR
+# from GKRProver import GKRProver
+# from GKRVerifier import GKRVerifier
+# from typing import List
+# from multilinear_extension import extend_sparse
 
 class TensorCode:
     def __init__(self, C_0):
