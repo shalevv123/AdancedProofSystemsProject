@@ -1,4 +1,7 @@
 import random
+import galois
+import polynomial
+import numpy as np
 
 # my files
 # from GKR import GKR
@@ -73,23 +76,24 @@ class CodeWordProof:
 
 class AllZeroVerifier:
     def __init__(self):
-        pass
+        self.stage=0
 
-    def receive(self, polynomial):
+    def receive(self, polynomial, gf, n):
         # check the poly is zero, return random field member
         # if this is the last phase return the indexes for phase 3
-        pass
+        if self.stage==0:
+            # sample randome element from the field
+            return gf(np.random.randint(0, gf.order, int(np.ceil(3*np.log2(n)+3)), dtype=int))
 
 
 class AllZeroProver:
     def __init__(self, formula, witness):
         # calculate LDE of p
-        pass
+        self.stage=0
 
     def receive(self, constant):
         # do the all zero calculation and return the polynomial.
         pass
-
 
 class AllZeroProof:
     def __init__(self, formula, witness):
