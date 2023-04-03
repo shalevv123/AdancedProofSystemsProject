@@ -9,13 +9,16 @@ import numpy as np
 # from GKRVerifier import GKRVerifier
 # from typing import List
 # from multilinear_extension import extend_sparse
+from LDE import lde, I
+from CNF3 import eval, witness, clouse
+
 
 class TensorCode:
     def __init__(self, C_0):
         self.C = lambda x: C_0(C_0(C_0(x)))
 
     def code(self, x):
-        return self.C(x) if x.dim()==3 else None
+        return self.C(x) if x.dim() == 3 else None
 
     # def decode(self, C_x): # dont need it
     #     # TODO: some calculation
@@ -27,7 +30,7 @@ class TensorCode:
         x = random.choice(range(size(dim=0)))
         y = random.choice(range(size(dim=1)))
         z = random.choice(range(size(dim=2)))
-        check = lambda x: self.decode(x) is not None
+        def check(x): return self.decode(x) is not None
         return check(x) and check(y) and check(z)
 
     def local_decode(self, C_x, idx):
@@ -76,33 +79,90 @@ class CodeWordProof:
 
 class AllZeroVerifier:
     def __init__(self):
-        self.stage=0
+        self.done = None
+        self.rs = []
+        self.alpha = 0
+
+    @staticmethod
+    def randomFieldElement(gf, m):
+        return gf(np.random.randint(0, gf.order, m, dtype=int))
 
     def receive(self, polynomial, gf, n):
         # check the poly is zero, return random field member
         # if this is the last phase return the indexes for phase 3
-        if self.stage==0:
+        if len(self.rs) == 0:
             # sample randome element from the field
-            return gf(np.random.randint(0, gf.order, int(np.ceil(3*np.log2(n)+3)), dtype=int))
-
+            self.m = int(np.ceil(3*np.log2(n)+3))
+            self.z = self.randomFieldElement(gf, self.m)
+            return self.z
+        else:
+            if not polynomial(0)+polynomial(1) == self.alpha:
+                self.done = False     
+            self.m -= 1
+            r_i = self.randomFieldElement(gf, 1)
+            self.rs.append(r_i)
+            if self.m == 1:
+                self.done = True
+            self.alpha = polynomial(r_i)
+            return r_i
 
 class AllZeroProver:
-    def __init__(self, formula, witness):
-        # calculate LDE of p
-        self.stage=0
+    def __init__(self, formula, w, n):
+        def phi(*args):
+            return clouse(formula, *args)
+        phi_hat = lde(f=phi, H=(0, 1), m=int(3*np.ceil(np.log2(n))+3))
+        w_hat = lde(f=witness(w), H=(0, 1), m=int(np.ceil(np.log2(n))))
+        # calculate p
 
-    def receive(self, constant):
+        def P(*args):
+            b1, b2, b3 = args[-3:]
+            phi_hat_res = phi_hat(*args)
+            i_s = args[:-3]
+            size = len(i_s)//3
+            i1, i2, i3 = i_s[:size], i_s[size:2*size], i_s[2*size:]
+            w1, w2, w3 = (w_hat(i1)-b1), (w_hat(i2)-b2), (w_hat(i3)-b3)
+            return phi_hat_res*w1*w2*w3
+        self.n = n
+        self.P = P
+        self.round = 0
+        self.Q = None
+        self.m = int(3*np.ceil(np.log2(self.n))+3)
+    
+    @staticmethod
+    def intToBits(i):
+        return [int(digit) for digit in bin(i)[2:]] # [2:] to chop off the "0b" part 
+    
+    def sumGF2(self, x, m):
+        return sum(self.Q(x, *self.intToBits(i)) for i in range(2**m))
+
+    def receive(self, z):
         # do the all zero calculation and return the polynomial.
-        pass
+        if self.Q is None:
+            self.Q = lambda *args: self.P(*args)*I(args, z, H=(0,1), m=self.m)
+        else:
+            self.Q = lambda *args: self.Q(z, *args)
+        self.m-=1
+        return lambda x: self.sumGF2(x, self.m) # Q tilda
+        
+
 
 class AllZeroProof:
-    def __init__(self, formula, witness):
-        # create verifier and prover
-        pass
+    def __init__(self, formula, witness, n, gf):
+        self.V = AllZeroVerifier()
+        self.P = AllZeroProver(formula, witness, n)
+        self.n = n
+        self.gf = gf
 
     def prove(self):
         # implement the all zero proof
-        pass
+        Q = None
+        r_i =  self.V.receive(Q, self.gf, self.n)
+        while self.V.done is None:
+            # prover
+            Q = self.P.receive(r_i)
+            # verifier
+            r_i = self.V.receive(Q, self.gf, self.n)
+        return self.V.done, self.V.z, self.V.rs
 
 # Phase 3 structures:
 
@@ -118,10 +178,10 @@ class LDEVerifier:
 
 
 class LDEProver:
-    def __init__(self): # TODO: complete inputs
+    def __init__(self):  # TODO: complete inputs
         pass
 
-    def receive(self): # TODO: complete inputs
+    def receive(self):  # TODO: complete inputs
         # TODO: Assaf
         pass
 
@@ -157,5 +217,3 @@ prover:                              verifier:
         ------------------------------
                                             ACK/REJ
 '''
-
-
