@@ -162,10 +162,15 @@ class AllZeroProof:
             Q = self.P.receive(r_i)
             # verifier
             r_i = self.V.receive(Q, self.gf, self.n)
-        return self.V.done, self.V.z, self.V.rs
+        return self.V.done, self.V.z, self.V.rs, Q
 
 # Phase 3 structures:
-
+'''
+    now check if indeed Q_z(rs) equals Q(rs) sent by the all-zero prover in the last phase
+    * Q_z(rs)=P(rs)*I(rs,z)
+    * P(i1, i2, i3, b1, b2, b3)=phi(i1, i2, i3, b1, b2, b3)*(w(i1)-b1)*(w(i1)-b2)*(w(i3)-b3)
+'''
+#TODO: how to check if a string is a legitimate codeword?
 
 class LDEVerifier:
     def __init__(self, formula, index_value_list, code, code_word):
