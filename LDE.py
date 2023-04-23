@@ -3,12 +3,13 @@ import functools
 import itertools
 
 def I(x, y, H, m):
-    mul = 1
+    numerator, denumenator = 1, 1
     for i in range(0, m):
         for h in H:
             if h == y[i]: continue
-            mul *= (x[i]-h)/(y[i]-h)
-    return mul
+            numerator *= (x[i]-h)
+            denumenator *= (y[i]-h)
+    return numerator / denumenator
 
 def lde(f, H, m):
     '''

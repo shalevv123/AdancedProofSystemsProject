@@ -10,15 +10,17 @@ import numpy as np
 # from typing import List
 # from multilinear_extension import extend_sparse
 from LDE import lde, I
-from CNF3 import eval, witness, clouse
+from CNF3 import eval, witness, clause
 
 
 class TensorCode:
     def __init__(self, C_0):
-        self.C = lambda x: C_0(C_0(C_0(x)))
+        # self.C = lambda x: C_0(C_0(C_0(x)))
+        pass
 
     def code(self, x):
-        return self.C(x) if x.dim() == 3 else None
+        # return self.C(x) if x.dim() == 3 else None
+        raise NotImplemented
 
     # def decode(self, C_x): # dont need it
     #     # TODO: some calculation
@@ -26,17 +28,19 @@ class TensorCode:
     #     return x
 
     def local_test(self, C_x):
-        size = C_x.size()
-        x = random.choice(range(size(dim=0)))
-        y = random.choice(range(size(dim=1)))
-        z = random.choice(range(size(dim=2)))
-        def check(x): return self.decode(x) is not None
-        return check(x) and check(y) and check(z)
+        # size = C_x.size()
+        # x = random.choice(range(size(dim=0)))
+        # y = random.choice(range(size(dim=1)))
+        # z = random.choice(range(size(dim=2)))
+        # def check(x): return self.decode(x) is not None
+        # return check(x) and check(y) and check(z)
+        pass
 
     def local_decode(self, C_x, idx):
-        x, y, z = idx
-        # TODO: some check
-        return C_x[x, y, z]
+        # x, y, z = idx
+        # # TODO: some check
+        # return C_x[x, y, z]
+        pass
 
 
 class ProofException(Exception):
@@ -50,7 +54,7 @@ class CodeWordVerifier:
     def __init__(self, code):
         self.code = code
 
-    def receive(self, codeword):
+    def next_msg(self, codeword):
         if self.code.local_test(codeword) is False:
             raise ProofException('This is a cheaty prover')
 
@@ -59,7 +63,7 @@ class CodeWordProver:
     def __init__(self, witness, code):
         self.codeword = code(witness)
 
-    def receive(self):
+    def next_msg(self):
         return self.codeword
 
 
@@ -70,8 +74,8 @@ class CodeWordProof:
         self.codeword = None
 
     def prove(self):
-        self.codeword = self.prover.receive()
-        self.verifier.receive(self.codeword)
+        self.codeword = self.prover.next_msg()
+        self.verifier.next_msg(self.codeword)
 
 
 # phase 2 structures:
@@ -79,38 +83,40 @@ class CodeWordProof:
 
 class AllZeroVerifier:
     def __init__(self):
-        self.done = None
+        self.status = None
+        self.z = None
         self.rs = []
         self.alpha = 0
 
     @staticmethod
-    def randomFieldElement(gf, m):
+    def randomFieldElementVector(gf, m=1):
         return gf(np.random.randint(0, gf.order, m, dtype=int))
 
-    def receive(self, polynomial, gf, n):
+    def receive(self, polynomial, gf, n):#TODO: move n to c'tor
         # check the poly is zero, return random field member
         # if this is the last phase return the indexes for phase 3
-        if len(self.rs) == 0:
-            # sample randome element from the field
-            self.m = int(np.ceil(3*np.log2(n)+3))
-            self.z = self.randomFieldElement(gf, self.m)
+        if self.z is None:
+            # sample randome elements vector from the field
+            self.m = int(3*np.ceil(np.log2(n))+3) #TODO: move to c'tor
+            self.z = self.randomFieldElementVector(gf, self.m)
             return self.z
         else:
             if not polynomial(0)+polynomial(1) == self.alpha:
-                self.done = False     
-            self.m -= 1
-            r_i = self.randomFieldElement(gf, 1)
+                self.status = False
+                return 0    
+            # self.m -= 1
+            r_i = self.randomFieldElementVector(gf, 1)
             self.rs.append(r_i)
-            if self.m == 1:
-                self.done = True
+            if self.m - len(self.rs) == 1:
+                self.status = True
             self.alpha = polynomial(r_i)
             return r_i
 
 class AllZeroProver:
     def __init__(self, formula, w, n):
         def phi(*args):
-            return clouse(formula, *args)
-        phi_hat = lde(f=phi, H=(0, 1), m=int(3*np.ceil(np.log2(n))+3))
+            return clause(formula, *args)
+        phi_hat = lde(f=phi, H=(0, 1), m=int(3*np.ceil(np.log2(n))+3))#TODO: check H with GF
         w_hat = lde(f=witness(w), H=(0, 1), m=int(np.ceil(np.log2(n))))
         # calculate p
 
@@ -157,12 +163,12 @@ class AllZeroProof:
         # implement the all zero proof
         Q = None
         r_i =  self.V.receive(Q, self.gf, self.n)
-        while self.V.done is None:
+        while self.V.status is None:
             # prover
             Q = self.P.receive(r_i)
             # verifier
             r_i = self.V.receive(Q, self.gf, self.n)
-        return self.V.done, self.V.z, self.V.rs, Q
+        return self.V.status, self.V.z, self.V.rs, Q
 
 # Phase 3 structures:
 '''
@@ -218,7 +224,9 @@ prover:                              verifier:
           run _all zero check_ from hw2
           on the polynomial P (from class)
         ------------------------------
-          linearity check on C(w)
+          lin-check on C(w)
         ------------------------------
                                             ACK/REJ
 '''
+
+# aim for soudness error 2**-32
