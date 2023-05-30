@@ -2,6 +2,8 @@ import random
 import galois
 import polynomial
 import numpy as np
+from enum import Enum
+from auxiliary import *
 
 # my files
 # from GKR import GKR
@@ -12,6 +14,8 @@ import numpy as np
 from LDE import lde, I
 from CNF3 import eval, witness, clause
 
+Status = Enum('Status', ['IN_PROCCESS', 'ACK', 'REJ'])
+
 
 class TensorCode:
     def __init__(self, C_0):
@@ -20,6 +24,7 @@ class TensorCode:
 
     def code(self, x):
         # return self.C(x) if x.dim() == 3 else None
+        # TODO: return some np-array
         raise NotImplemented
 
     # def decode(self, C_x): # dont need it
@@ -174,30 +179,49 @@ class AllZeroProof:
 '''
     now check if indeed Q_z(rs) equals Q(rs) sent by the all-zero prover in the last phase
     * Q_z(rs)=P(rs)*I(rs,z)
-    * P(i1, i2, i3, b1, b2, b3)=phi(i1, i2, i3, b1, b2, b3)*(w(i1)-b1)*(w(i1)-b2)*(w(i3)-b3)
+    * P(i1, i2, i3, b1, b2, b3)=phi(i1, i2, i3, b1, b2, b3)*(w(i1)-b1)*(w(i2)-b2)*(w(i3)-b3)
 '''
-#TODO: how to check if a string is a legitimate codeword?
+#TODO: how to check if a string is a legitimate codeword
+NUM_ROWS_TO_CHECK = 3
+class LinVerifier:
+    def __init__(self, formula, index_value, code, code_word, value, delimiter_vecs=None):
+        if delimiter_vecs is None:
+            self.delimiter_vecs = ((1 for i in range(d)) for d in code_word.shape)
+        self.delimiter_vecs = (v if v.shape==(d,) else (1 for i in range(d)) for v,d in zip(code_word.shape))
+        self.formula = formula
+        self.index_value = index_value
+        self.code = code
+        self.code_word = code_word
+        self.value = value
+        self.status = Status.IN_PROCCESS
 
-class LDEVerifier:
-    def __init__(self, formula, index_value_list, code, code_word):
-        # TODO: Assaf
-        pass
+    def receive(self, partial_sums):
+        if innerProduct_sums(partial_sums, self.delimiter_vecs[:-1]) != self.value:
+            self.status = Status.REJ
+            return
+        for _ in range(NUM_ROWS_TO_CHECK):
+            index = tuple(np.random.randint(dim) for dim in self.code_word.shape[:-1])
+            last_dim_sum = self.code_word[index] @ self.delimiter_vecs[-1]
+            if last_dim_sum != partial_sums[index]:
+                self.status = Status.REJ
+                return
+        self.status = Status.ACK
+        #TODO: what do we return?
 
-    def receive(self):  # TODO: complete inputs
-        # TODO: Assaf
-        pass
-
-
-class LDEProver:
-    def __init__(self):  # TODO: complete inputs
-        pass
-
-    def receive(self):  # TODO: complete inputs
-        # TODO: Assaf
-        pass
+        
+        
 
 
-class LDEProof:
+class LinProver:
+    def __init__(self,code_word, delimiter_vec):
+        self.code_word = code_word
+        self.delimiter_vec = delimiter_vec
+
+    def receive(self):
+        return self.code_word @ self.delimiter_vec
+
+
+class LinProof:
     def __init__(self):  # TODO: complete inputs
         pass
 
