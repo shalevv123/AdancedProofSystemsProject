@@ -6,7 +6,7 @@ import random
 # from GKRVerifier import GKRVerifier
 # from typing import List
 # from multilinear_extension import extend_sparse
-
+from polynomial import MVLinear
 class TensorCode:
     def __init__(self, C_0):
         self.C = lambda x: C_0(C_0(C_0(x)))
@@ -75,8 +75,9 @@ class AllZeroVerifier:
     def __init__(self):
         pass
 
-    def receive(self, polynomial):
+    def receive(self, polynomial: MVLinear):
         # check the poly is zero, return random field member
+
         # if this is the last phase return the indexes for phase 3
         pass
 
