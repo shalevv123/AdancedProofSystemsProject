@@ -1,18 +1,35 @@
-
+from numpy import random
 class code:
-    pass
+    @staticmethod
+    def code(x):
+        return x  # TODO: change to real code
+    @staticmethod
+    def test(x):
+        return True  # TODO: change to real test
 '''
 TODO:
     - local testability of Tensor code
     - lincheck (move to Tensor code)
     - code
-    - local decode of Tensor code(i -> i,j,k)
+    - local decode of Tensor code(i -> i,j,k) DONE
     - 
 '''
+def oneDimIndexToNDimIndex(index: int, nDims, dimSizes):
+    if index == 0:
+        return [0] * nDims
+    n = index
+    res = []
+    for i in range(nDims):
+        res.append(n % dimSizes[i])
+        n //= dimSizes[i]
+    return res
 
 class TensorCode:
-    def __init__(self, C_0):
-        # self.C = lambda x: C_0(C_0(C_0(x)))
+    def __init__(self, C_0, dim=3):
+        self.dim = dim
+        self.C = lambda x: x
+        for i in range(dim):
+            self.C = lambda x: C_0(self.C(x))
         pass
 
     def code(self, x):
@@ -20,23 +37,14 @@ class TensorCode:
         # TODO: return some np-array
         raise NotImplemented
 
-    # def decode(self, C_x): # dont need it
-    #     # TODO: some calculation
-    #     x = 0 # Just for now
-    #     return x
-
     def local_test(self, C_x):
-        # size = C_x.size()
-        # x = random.choice(range(size(dim=0)))
-        # y = random.choice(range(size(dim=1)))
-        # z = random.choice(range(size(dim=2)))
-        # def check(x): return self.decode(x) is not None
-        # return check(x) and check(y) and check(z)
+        # get a row from the n dimensional matrix C_x, then choose a random column along that row, then chose a random
+        # depth along that column, and test them all to be codewords
+
+
         pass
+
 
     def local_decode(self, C_x, idx):
-        # x, y, z = idx
-        # # TODO: some check
-        # return C_x[x, y, z]
-        pass
-    # add lin-check here
+        return C_x[oneDimIndexToNDimIndex(idx, self.dim, C_x.shape)]
+
