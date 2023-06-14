@@ -2,14 +2,19 @@ import numpy as np
 import functools
 import itertools
 
+def I0(xi,yi):
+    return 1-xi-yi+2*xi*yi
+
 def I(x, y, H, m):
-    numerator, denumenator = 1, 1
+    I_s = (I0(xi, yi) for xi,yi in zip(x,y))
+    return functools.reduce(lambda a,b: a*b, I_s)
+'''    numerator, denumenator = 1, 1
     for i in range(0, m):
         for h in H:
-            if h == y[i]: continue
+            if h == y[i]: continue #TODO: change to the form without devision
             numerator *= (x[i]-h)
             denumenator *= (y[i]-h)
-    return numerator / denumenator
+    return numerator / denumenator'''
 
 def lde(f, H, m):
     '''
