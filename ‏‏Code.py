@@ -1,5 +1,5 @@
 
-class code:
+class Code:
     pass
 '''
 TODO:
