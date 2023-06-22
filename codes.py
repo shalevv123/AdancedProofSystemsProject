@@ -53,33 +53,16 @@ class TensorCode:
         dims = C_x.shape
         C_x_copy = C_x.copy()
         indices = [random.randint(0, dims[i]) for i in range(len(dims))]
-        for i in range(len(dims)):
-            if not basecode.test(C_x_copy[:, tuple(indices[1:])]):
+        for i, dim in enumerate(dims):
+            array = []
+            for j in range(dim):
+                array.append(C_x_copy[tuple([j]) + tuple(indices[1:])])
+            if not basecode.test(numpy.array(array)):
                 return False
             C_x_copy = moveaxis(C_x_copy, 0, -1)
             indices = indices[1:] + [indices[0]]
-            indices[1] = random.randint(0, dims[i])
+            indices[-1] = random.randint(0, dims[i])
         return True
 
     def local_decode(self, C_x, idx):
         return C_x[oneDimIndexToNDimIndex(idx, self.dim, C_x.shape)]
-
-
-def local_test(C_x):
-    # get a row from the n dimensional matrix C_x, then choose a random column along that row, then chose a random
-    # depth along that column, and test them all to be codewords
-    dims = C_x.shape
-    C_x_copy = C_x.copy()
-    indices = [random.randint(0, dims[i]) for i in range(len(dims))]
-    for i in range(len(dims)):
-        if not basecode.test(C_x_copy[numpy.ix_(:, indices[1:])[0]]):
-            return False
-        C_x_copy = moveaxis(C_x_copy, 0, -1)
-        indices = indices[1:] + [indices[0]]
-        indices[-1] = random.randint(0, dims[i])
-    return True
-
-
-if __name__ == "__main__":
-    a = numpy.arange(2 * 3 * 4).reshape((2, 3, 4))
-    local_test(a)
