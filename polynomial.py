@@ -2,8 +2,8 @@ import copy
 import random
 from typing import Dict, List, Union, Callable
 from IPython.display import display, Latex
+import galois
 
-from Crypto.Util.number import getPrime
 class MVLinear:
     """
     A Sparse Representation of a multi-linear polynomial.
@@ -277,4 +277,4 @@ def randomMVLinear(num_variables: int, prime: int = 0, prime_bit_length: int = 1
 
 
 def randomPrime(size: int) -> int:
-    return getPrime(size)
+    return galois.random_prime(size-1)

@@ -112,7 +112,7 @@ class AllZeroProver:
         return [int(digit) for digit in bin(i)[2:]] # [2:] to chop off the "0b" part 
     
     def sumGF2(self, x, m):
-        return sum(self.Q(x, *self.intToBits(i)) for i in range(2**m))
+        return sum(self.Q(x, *int_get_bits(i)) for i in range(2**m))
 
     def receive(self, z):
         # do the all zero calculation and return the polynomial.
@@ -183,7 +183,7 @@ class LinVerifier:
 class LinProver:
     def __init__(self,code_word, delimiter_vec):
         self.code_word = code_word
-        self.delimiter_vec = delimiter_vec
+        self.delimiter_vec = delimiter_vec #TODO: add ones to make the dimentions OK (delimiters are only for w, not the code ext.)
 
     def receive(self):
         return self.code_word @ self.delimiter_vec

@@ -1,8 +1,12 @@
 import numpy as np
 import functools
 import itertools
+import galois
+from field import F
 
 def I0(xi,yi):
+    if isinstance(xi, F) or isinstance(yi, F):
+        return F(1)-F(xi)-F(yi)+2*F(xi)*F(yi)
     return 1-xi-yi+2*xi*yi
 
 def I(x, y, H, m):
@@ -16,13 +20,15 @@ def I(x, y, H, m):
             denumenator *= (y[i]-h)
     return numerator / denumenator'''
 
-def lde(f, H, m):
+def lde(f, H, m, F=F):
     '''
         f:H^m->F
         H is a subset of F
         m is the number of variables of f
+        returns f_hat:F^m->F
     '''
-    return lambda x: sum(f(h)*I(x,h, H, m) for h in itertools.product(H, repeat=m)) 
+    return lambda x: sum(f(h)*I(x,h, H, m) for h in itertools.product(H, repeat=m))
+
 
 if __name__ == "__main__":
     H=(0,1)
