@@ -1,4 +1,4 @@
 import galois
+from parameters import field_size
 
-field_size = 17
 F = galois.GF(2**field_size)

@@ -1,6 +1,5 @@
 
-def convert(args):
-    return int("0b"+''.join(str(i) for i in args), base=0)
+
 
 def bits_to_int_clause(func):
     def inner(*args):

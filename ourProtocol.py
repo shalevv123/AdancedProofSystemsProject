@@ -4,15 +4,10 @@ import polynomial
 import numpy as np
 from enum import Enum
 from auxiliary import *
-
-# my files
-# from GKR import GKR
-# from GKRProver import GKRProver
-# from GKRVerifier import GKRVerifier
-# from typing import List
-# from multilinear_extension import extend_sparse
+from TensorCode import TensorCode, LinCode
 from LDE import lde, I
 from CNF3 import eval, witness, clause
+from parameters import *
 
 Status = Enum('Status', ['IN_PROCCESS', 'ACK', 'REJ'])
 
@@ -148,29 +143,38 @@ class AllZeroProof:
     now check if indeed Q_z(rs) equals Q(rs) sent by the all-zero prover in the last phase
     * Q_z(rs)=P(rs)*I(rs,z)
     * P(i1, i2, i3, b1, b2, b3)=phi(i1, i2, i3, b1, b2, b3)*(w(i1)-b1)*(w(i2)-b2)*(w(i3)-b3)
+    * i1,i2,i3 \in F^m
 '''
-#TODO: how to check if a string is a legitimate codeword
+
 NUM_ROWS_TO_CHECK = 3
 class LinVerifier:
-    def __init__(self, formula, index_value, code, code_word, value, delimiter_vecs=None):
-        if delimiter_vecs is None:
-            self.delimiter_vecs = ((1 for i in range(d)) for d in code_word.shape)
-        self.delimiter_vecs = (v if v.shape==(d,) else (1 for i in range(d)) for v,d in zip(code_word.shape))
+    '''
+        IP for verifing that indeed Q_z(rs) equals Q(rs) sent by the all-zero prover in the last phase
+    '''
+    def __init__(self, n, formula, code, codeword: LinCode, z, r_s):
+        pass
+class LinVerifier_aux:
+    '''
+        IP for verifing that w_hat(index_value)=value
+        w (formula) is encoded using code to obtain codeword
+    '''
+    def __init__(self, n, formula, index_value, codeword:LinCode, value):
+        self.code_word = codeword.trunc(n)
+        self.delimiter_vecs = get_delimiters(index_value) # 2-D
         self.formula = formula
         self.index_value = index_value
-        self.code = code
-        self.code_word = code_word
+        self.code_word = codeword
         self.value = value
         self.status = Status.IN_PROCCESS
 
     def receive(self, partial_sums):
-        if innerProduct_sums(partial_sums, self.delimiter_vecs[:-1]) != self.value:
+        if self.delimiter_vecs[-1] @ partial_sums != self.value:
             self.status = Status.REJ
             return
         for _ in range(NUM_ROWS_TO_CHECK):
             index = tuple(np.random.randint(dim) for dim in self.code_word.shape[:-1])
-            last_dim_sum = self.code_word[index] @ self.delimiter_vecs[-1]
-            if last_dim_sum != partial_sums[index]:
+            last_dim_sum = self.delimiter_vecs[0] @ self.code_word[:,index]
+            if last_dim_sum != partial_sums[(index, )]:
                 self.status = Status.REJ
                 return
         self.status = Status.ACK
@@ -181,12 +185,12 @@ class LinVerifier:
 
 
 class LinProver:
-    def __init__(self,code_word, delimiter_vec):
-        self.code_word = code_word
-        self.delimiter_vec = delimiter_vec #TODO: add ones to make the dimentions OK (delimiters are only for w, not the code ext.)
+    def __init__(self, code_word:LinCode, index_value):
+        self.code_word = code_word.codeword
+        self.delimiter_vec = get_delimiters(index_value) # 2-D
 
     def receive(self):
-        return self.code_word @ self.delimiter_vec
+        return self.delimiter_vec[0] @ self.code_word
 
 
 class LinProof:
@@ -206,6 +210,13 @@ class MainProof:
     def prove(self):
         # save relevant info between the steps and run all the proofs.
         pass
+
+def main():
+    def C_0(x):
+        return x
+    formula = ''
+    witness = ''
+    code = TensorCode(C_0, dim=2)
 
 
 '''

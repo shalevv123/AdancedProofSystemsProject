@@ -10,7 +10,7 @@ def I0(xi,yi):
     return 1-xi-yi+2*xi*yi
 
 def I(x, y, H, m):
-    I_s = (I0(xi, yi) for xi,yi in zip(x,y))
+    I_s = (I0(xi, yi) for xi,yi in itertools.zip_longest(x,y,fillvalue=0))
     return functools.reduce(lambda a,b: a*b, I_s)
 '''    numerator, denumenator = 1, 1
     for i in range(0, m):
@@ -27,7 +27,7 @@ def lde(f, H, m, F=F):
         m is the number of variables of f
         returns f_hat:F^m->F
     '''
-    return lambda x: sum(f(h)*I(x,h, H, m) for h in itertools.product(H, repeat=m))
+    return lambda x: functools.reduce(lambda a,b: a+b, (f(*h)*I(x,h, H, m) for h in itertools.product(H, repeat=m)))
 
 
 if __name__ == "__main__":

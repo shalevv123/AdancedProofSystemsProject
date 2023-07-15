@@ -15,11 +15,11 @@ def fancy_zip(l1, l2):
 
 def innerProduct_sums(m1, m2):
     for v in reversed(m2):
-        m1 = m1 @ v
+        m1 = v @ m1
     return m1
 
 def theoretic_range(n):
-    return range(1, n+1)
+    return range(1, int(n+1))
 
 def GF_get_bits(z):
     bytes_z = reversed(z.tobytes())
@@ -36,19 +36,20 @@ def get_at(seq, i):
     return 0
 
 
-def get_delimiters(z:tuple, n=3):
+def get_delimiters(z:tuple, n=2):
     '''
-        y[k]=prod_{i=1}^{m/2} I0(z[i], k[i])
+        y[k]=prod_{i=1}^{m/n} I0(z[i], k[i])
         z ∈ F^m 
     '''
-    m=len(z)
+    m = len(z)
+    M = 2**m
     dels = []
     for j in range(n):
         y=[]
-        for k in theoretic_range(m//n):
+        for k in range(int(np.round(np.power(M, (1./n))))):
             bits_k = int_get_bits(k)
             Is = (LDE.I0(get_at(z, i), get_at(bits_k, i-j*(m//n))) for i in range(j*(m//n), (j+1)*(m//n)))
             y.append(functools.reduce(lambda a,b: a*b, Is))
         dels.append(y)
-    return dels
+    return tuple(reversed(dels))
 
