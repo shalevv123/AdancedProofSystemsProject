@@ -2,7 +2,7 @@ import numpy as np
 import functools
 import itertools
 import galois
-from field import F
+from parameters import F
 
 def I0(xi,yi):
     if isinstance(xi, F) or isinstance(yi, F):

@@ -1,16 +1,15 @@
 import random
 import galois
-import polynomial
 import itertools
 import CNF3
+import parameters
 import numpy as np
 from enum import Enum
 from auxiliary import get_delimiters, int_get_bits, prod
 from TensorCode import TensorCode, LinCode
 from LDE import lde, I
-from CNF3 import eval, witness, clause
-from parameters import phi, z, tensor_code, NUM_ROWS_TO_CHECK
-from field import F, baseSubset
+from CNF3 import witness, clause
+from parameters import phi, z, tensor_code, NUM_ROWS_TO_CHECK, F, baseSubset
 
 Status = Enum('Status', ['IN_PROCCESS', 'ACC', 'REJ'])
 
@@ -80,7 +79,8 @@ class AllZeroVerifier:
             self.z = self.randomFieldElementVector(self.gf, self.m)
             return self.z
         else:
-            if not (polynomial(0)+polynomial(1) == self.alpha):
+            tmp0, tmp1 = polynomial(0), polynomial(1)
+            if not (tmp0 + tmp1 == self.alpha):
                 self.status = Status.REJ
                 return    
             # self.m -= 1
@@ -96,7 +96,7 @@ class AllZeroProver:
         self.gf = gf
         def phi(*args):
             return clause(formula, *args)
-        phi_hat = lde(f=phi, H=baseSubset, m=int(3*np.ceil(np.log2(n))+3))#TODO: check H with GF
+        phi_hat = lde(f=phi, H=baseSubset, m=int(3*np.ceil(np.log2(n))+3))
         w_hat = lde(f=witness(w), H=baseSubset, m=int(np.ceil(np.log2(n))))
         # calculate p
 
@@ -106,10 +106,11 @@ class AllZeroProver:
             w1, w2, w3 = (w_hat(i1)-gf(b1)), (w_hat(i2)-gf(b2)), (w_hat(i3)-gf(b3))
             return phi_hat_res*w1*w2*w3
         self.n = n
+        self.m = int(3*np.ceil(np.log2(self.n))+3)
         self.P = P
         self.round = 0
         self.Q = None
-        self.m = int(3*np.ceil(np.log2(self.n))+3)
+        
     
     @staticmethod
     def intToBits(i):
@@ -245,19 +246,13 @@ class LinProof:
         if self.V.status is Status.REJ:
             raise ProofException('3')
 
-def count_vars(formula):
-    vars = set()
-    for f_clause in formula:
-        for var in f_clause:
-            vars.add(abs(var))
-    return len(vars)
 
 class MainProof:
     def __init__(self, formula, witness, code=tensor_code, gf=F):
         # create all the verifiers provers and proofs
         self.formula = formula
         self.witness = witness
-        self.n = count_vars(formula)
+        self.n = parameters.n
         self.code = code
         self.gf = gf
         # phase 1

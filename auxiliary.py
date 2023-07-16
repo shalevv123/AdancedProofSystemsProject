@@ -1,8 +1,6 @@
 import numpy as np
 import functools
-import polynomial
 import LDE
-import galois
 
 def fancy_zip(l1, l2):
     i = 0

@@ -1,6 +1,5 @@
 from CNF3 import *
 from parameters import *
-from field import F
 from ourProtocol import *
 from auxiliary import *
 from polynomial import *
