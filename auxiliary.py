@@ -13,6 +13,9 @@ def fancy_zip(l1, l2):
         for k in range(i, len(l2)):
             yield np.array([]), l2[k]
 
+def prod(seq):
+    return functools.reduce(lambda a,b: a*b, seq)
+
 def innerProduct_sums(m1, m2):
     for v in reversed(m2):
         m1 = v @ m1
@@ -49,7 +52,7 @@ def get_delimiters(z:tuple, n=2):
         for k in range(int(np.round(np.power(M, (1./n))))):
             bits_k = int_get_bits(k)
             Is = (LDE.I0(get_at(z, i), get_at(bits_k, i-j*(m//n))) for i in range(j*(m//n), (j+1)*(m//n)))
-            y.append(functools.reduce(lambda a,b: a*b, Is))
+            y.append(prod(Is))
         dels.append(y)
     return tuple(reversed(dels))
 

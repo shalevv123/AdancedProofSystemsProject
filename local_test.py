@@ -1,15 +1,19 @@
+from CNF3 import *
+from parameters import *
+from field import F
+from ourProtocol import *
+from auxiliary import *
+from polynomial import *
+import numpy as np
+
 def convert(args):
     return int("0b"+''.join(str(i) for i in args), base=0)
 
-def convert_args(args, to_bits=False):
-    if len(args)==1:
-        args = args[0]
+def convert_args(args):
     b1,b2,b3 = tuple(int(a) for a in args[-3:])
     i_s = args[:-3]
     size = len(i_s)//3
-    i1, i2, i3 = i_s[:size], i_s[size:2*size], i_s[2*size:]
-    if not to_bits:
-        i1, i2, i3 = convert(i1), convert(i2), convert(i3)
+    i1, i2, i3 = convert(i_s[:size]), convert(i_s[size:2*size]), convert(i_s[2*size:])
     return i1,i2,i3,b1,b2,b3
 
 def bits_to_int_clause(func):
@@ -46,12 +50,13 @@ def clause(phi, i1, i2, i3, b1, b2, b3):
 def witness(w):
     return bits_to_int_witness(lambda x: w[x])
 
+phi = [(1,2,3), (-2, 0,3), (-1, 2, -3)]
+w={1:True, 2:False, 3:True, 0:True}
+n=4
+m=int(3*np.ceil(np.log2(n))+3)
+phi_hat = lde(lambda *args: clause(phi, *args), (F(0), F(1)), m)
 
-if __name__ == "__main__":
-    phi = [(1,2,3), (-2, 4,3), (-1, 2, -3)]
-    z={1:True, 2:False, 3:True, 4:True}
-    print(f'{eval(phi, z)=}')
-    print(f'{clause(phi,0,1,1,0,1,1,0,1,0)=}')
-    print(f'{witness(z)(1,1)=}')
-    print(f'{witness(z)(1,0)=}')
-    print(f'{witness(z)(1,0,0)=}')
+z=AllZeroVerifier.randomFieldElementVector(F, m)
+x=phi_hat(z)
+
+

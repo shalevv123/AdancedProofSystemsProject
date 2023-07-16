@@ -28,6 +28,14 @@ def lde(f, H, m, F=F):
         returns f_hat:F^m->F
     '''
     return lambda x: functools.reduce(lambda a,b: a+b, (f(*h)*I(x,h, H, m) for h in itertools.product(H, repeat=m)))
+    
+    def inner(*args):
+        lde_tmp = lambda x: functools.reduce(lambda a,b: a+b, (f(*h)*I(x,h, H, m) for h in itertools.product(H, repeat=m)))
+        if len(args) == 1:
+            return lde_tmp(*args)
+        return lde_tmp(args)
+            
+    return inner
 
 
 if __name__ == "__main__":

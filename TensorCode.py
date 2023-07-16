@@ -28,10 +28,15 @@ class TensorCode:
         self.code=baseCode
     
     def __call__(self, w):
-        shape = w.shape
-        rows = np.apply_along_axis(lambda x: self.code(x).codeword, 1, w)
-        cols = np.apply_along_axis(lambda x: self.code(x).codeword, 0, rows)
-        return LinCode(shape, cols)
+        if isinstance(w, np.ndarray):
+            shape = w.shape
+            rows = np.apply_along_axis(lambda x: self.code(x).codeword, 1, w)
+            cols = np.apply_along_axis(lambda x: self.code(x).codeword, 0, rows)
+            return LinCode(shape, cols)
+        w = np.array(w)
+        dim = int(np.sqrt(w.shape[0]))
+        w = w.reshape((dim, dim))
+        return self(w)
         
     def get_word(self, codeword: LinCode):
         shape = codeword.shape
