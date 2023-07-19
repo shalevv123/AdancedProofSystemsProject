@@ -1,7 +1,6 @@
-import numpy as np
 import functools
 import itertools
-from multiprocessing import Pool
+import concurrent.futures
 import galois
 from parameters import F
 
@@ -19,14 +18,14 @@ def I(x, y, H, m):
 
 def calculate_I(args):
     h, x, f, H, m = args
-    return f(h) * I(x, h, H, m)
+    return f(*h) * I(x, h, H, m)
 
 
 def lde(f, H, m):
     def r(x):
-        with Pool() as pool:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
             args = [(h, x, f, H, m) for h in itertools.product(H, repeat=m)]
-            results = pool.map(calculate_I, args)
+            results = executor.map(calculate_I, args)
         return functools.reduce(lambda a, b: a + b, results)
 
     return r
