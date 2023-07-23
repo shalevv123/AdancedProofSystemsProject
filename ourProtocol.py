@@ -65,6 +65,7 @@ class AllZeroVerifier:
         self.gf = gf
         self.rs = []
         self.alpha = 0
+        self.m = int(3*np.ceil(np.log2(self.n))+3)
 
     @staticmethod
     def randomFieldElementVector(gf, m=1):
@@ -75,7 +76,6 @@ class AllZeroVerifier:
         # if this is the last phase return the indexes for phase 3
         if self.z is None:
             # sample randome elements vector from the field
-            self.m = int(3*np.ceil(np.log2(self.n))+3) #TODO: move to c'tor
             self.z = self.randomFieldElementVector(self.gf, self.m)
             return self.z
         else:
@@ -110,23 +110,25 @@ class AllZeroProver:
         self.P = P
         self.round = 0
         self.Q = None
+        self.rs=[]
         
     
     @staticmethod
     def intToBits(i):
         return [int(digit) for digit in bin(i)[2:]] # [2:] to chop off the "0b" part 
     
-    def sumGF2(self, x, m):
-        return sum((self.Q(x, *i) for i in itertools.product(baseSubset, repeat=m)), start=self.gf(0))
+    def sumGF2(self, rs, x, m):
+        return sum((self.Q(*rs, x, *i) for i in itertools.product(baseSubset, repeat=m)), start=self.gf(0))
 
     def receive(self, z):
         # do the all zero calculation and return the polynomial.
-        if self.Q is None:
+        if self.round == 0:
             self.Q = lambda *args: self.P(*args)*I(args, z, H=baseSubset, m=self.m)
         else:
-            self.Q = lambda *args: self.Q(z, *args)
+            self.rs.append(z)
+        self.round+=1
         self.m-=1
-        return lambda x: self.sumGF2(x, self.m) # Q tilda
+        return lambda x: self.sumGF2(self.rs.copy(), x, self.m) # Q tilda
 
 class AllZeroProof:
     def __init__(self, formula, witness, n, gf):
@@ -137,21 +139,21 @@ class AllZeroProof:
         self.Q = None
 
 
+
     def prove(self):
         # implement the all zero proof
-        Q = None
-        r_i =  self.V.receive(Q)
+        r_i =  self.V.receive(None)
         round_count = 0
         while self.V.status is Status.IN_PROCCESS:
             # prover
             Q = self.P.receive(r_i)
-            if self.Q is None: self.Q = Q
+            if self.Q is None: self.Q = self.P.Q
             # verifier
             r_i = self.V.receive(Q)
             round_count += 1
         if self.V.status is Status.REJ:
             raise ProofException(f'2, {round_count}')
-        return self.V.z, self.V.rs, Q
+        return self.V.z, self.V.rs, self.Q
 
 # Phase 3 structures:
 '''
@@ -194,7 +196,7 @@ class LinVerifier:
         self.r_s = r_s
         self.m = int(3*np.ceil(np.log2(self.n))+3)
         self.formula = formula
-        self.phi_hat = phi_hat = lde(lambda *args: clause(self.formula, *args), H=baseSubset, m=self.m)
+        self.phi_hat = lde(lambda *args: clause(self.formula, *args), H=baseSubset, m=self.m)
         self.b_s = tuple(a for a in r_s[-3:])
         size = len(r_s[:-3])//3
         self.i_s = tuple(r_s[i*size : (i+1)*size] for i in range(3))
@@ -204,6 +206,13 @@ class LinVerifier:
         self.counter = 0
         self.Q = Q
         self.status = Status.IN_PROCCESS
+        #maybe remove
+        self.final_value = self.Q(self.r_s)
+        
+        if 'DEBUG' in dir(parameters):
+            # print all rellevent data
+            print(f'{self.n=}\n{self.r_s=}\n{self.m=}\n{self.formula=}\n{self.b_s=}\n{self.i_s=}')
+            print(f'{self.z=}\n{self.codeword=}\n{self.final_value=}')
 
     def receive(self, partial_sums):
         if self.status == Status.REJ: return
@@ -216,7 +225,7 @@ class LinVerifier:
         self.counter += 1
         if self.counter >=3:
             Qz = self.phi_hat(self.r_s)*(prod(wi-bi for wi,bi in zip(self.w_is, self.b_s)))*I(self.r_s, self.z)
-            if Qz != self.Q(self.r_s):
+            if Qz != self.final_value:
                 self.status = Status.REJ
                 return
             self.status = Status.ACC
@@ -226,6 +235,8 @@ class LinProver:
         self.code_word = code_word.codeword
         size = len(r_s[:-3])//3
         self.i_s = tuple(r_s[i*size : (i+1)*size] for i in range(3))
+        if 'DEBUG' in dir(parameters):
+            print(f'{self.i_s=}')
         self.delimiters = tuple(get_delimiters(index_value) for index_value in self.i_s)
         self.counter = 0
 

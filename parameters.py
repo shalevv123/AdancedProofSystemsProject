@@ -1,6 +1,8 @@
 from TensorCode import C0, TensorCode
 import galois
 
+DEBUG = True
+
 def count_vars(formula):
     vars = set()
     for f_clause in formula:
