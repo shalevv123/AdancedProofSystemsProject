@@ -37,20 +37,26 @@ def get_at(seq, i):
     return 0
 
 
-def get_delimiters(z:tuple, n=2):
-    '''
-        y[k]=prod_{i=1}^{m/n} I0(z[i], k[i])
-        z ∈ F^m 
-    '''
+def get_delimiters(z: tuple, n=2):
+    print('z: ' + str(z))
     m = len(z)
+    print('m: ' + str(m))
     M = 2**m
+    print('M: ' + str(M))
     dels = []
     for j in range(n):
-        y=[]
-        for k in range(int(np.round(np.power(M, (1./n))))):
+        y = []
+        for k in range(int(np.round(np.power(M, (1. / n))))):
+            print('int(np.round(np.power(M, (1. / n)))): ' + str(int(np.round(np.power(M, (1. / n))))))
+            print('k: ' + str(k))
             bits_k = int_get_bits(k)
-            Is = (LDE.I0(get_at(z, i), get_at(bits_k, i-j*(m//n))) for i in range(j*(m//n), (j+1)*(m//n)))
-            y.append(prod(Is))
+            print('bits_k: ' + str(bits_k))
+            Is = tuple(LDE.I0(get_at(z, i), get_at(bits_k, i - j * (m // n))) for i in range(j * (m // n), (j + 1) * (m // n)))
+            print('Is: ' + str(Is))
+            non_empty_arrays = [arr for arr in Is if np.any(arr)]  # Filter out empty arrays
+            if non_empty_arrays:
+                y.append(prod(non_empty_arrays))
         dels.append(y)
+    print('dels: ' + str(dels))
     return tuple(reversed(dels))
 
