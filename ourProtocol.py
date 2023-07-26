@@ -178,16 +178,18 @@ class LinVerifier_aux:
     '''
 
     def __init__(self, n, index_value, codeword: LinCode):
-        self.code_word = codeword.trunc(n)
+        print('codeword: ' + str(codeword))
+        # self.code_word = tensor_code.get_word(codeword)
+        self.code_word = codeword
         self.delimiter_vecs = get_delimiters(index_value)  # 2-D
         self.index_value = index_value
-        self.code_word = codeword
         self.status = Status.IN_PROCCESS
 
     def receive(self, partial_sums):
         for _ in range(NUM_ROWS_TO_CHECK):
             index = tuple(np.random.randint(dim) for dim in self.code_word.shape[:-1])
-            last_dim_sum = self.delimiter_vecs[0] @ self.code_word[:, index]
+            # last_dim_sum = self.delimiter_vecs[0] @ self.code_word[:, index]
+            last_dim_sum = np.array([element[0] for element in delimiter_vec[0]]) @ self.code_word[:, index]
             if last_dim_sum != partial_sums[(index,)]:
                 self.status = Status.REJ
                 return
@@ -244,14 +246,10 @@ class LinVerifier:
 class LinProver:
     def __init__(self, code_word: LinCode, r_s):
         self.code_word = tensor_code.get_word(code_word)
-        print('r_s: ' + str(r_s))
-        print('len(r_s): ' + str(len(r_s)))
         size = len(r_s[:-3]) // 3
-        print('size: ' + str(size))
         self.i_s = tuple(r_s[i * size: (i + 1) * size] for i in range(3))
         if 'DEBUG' in dir(parameters):
             print(f'{self.i_s=}')
-        print('self.i_s: ' + str(self.i_s))
         self.delimiters = tuple(get_delimiters(index_value) for index_value in self.i_s)
         self.counter = 0
 
@@ -263,7 +261,9 @@ class LinProver:
         print('self.code_word: ' + str(self.code_word))
         print('delimiter_vec[0]: ' + str(delimiter_vec[0]))
         print('self.code_word: ' + str(self.code_word))
-        return delimiter_vec[0] @ self.code_word
+        # return delimiter_vec[0] @ self.code_word
+        print('np.array([element[0] for element in delimiter_vec[0]]): ' + str(np.array([element[0] for element in delimiter_vec[0]])))
+        return np.array([element[0] for element in delimiter_vec[0]]) @ self.code_word
 
 
 class LinProof:
