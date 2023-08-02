@@ -1,12 +1,12 @@
-from parameters import n
+from parameters import n,F
 
 def convert(args):
     return int("0b"+''.join(str(i) for i in args), base=0)
 
-def convert_args(args, to_bits=False):
+def convert_args(args, to_bits=False, to_int=True):
     if len(args)==1:
         args = args[0]
-    b1,b2,b3 = tuple(int(a) for a in args[-3:])
+    b1,b2,b3 = tuple((int(a) if to_int else a) for a in args[-3:])
     i_s = args[:-3]
     size = len(i_s)//3
     i1, i2, i3 = i_s[:size], i_s[size:2*size], i_s[2*size:]
@@ -50,7 +50,7 @@ def clause(phi, i1, i2, i3, b1, b2, b3):
     i1, i2, i3 = replace_zero(i1), replace_zero(i2), replace_zero(i3)
     phi = [tuple(sorted(x)) for x in phi]
     tmp = tuple(sorted((-i1*pow(-1, b1), -i2*pow(-1, b2), -i3*pow(-1, b3))))
-    return  tmp in phi
+    return  int(tmp in phi)
 
 def witness(w):
     return bits_to_int_witness(lambda x: w[replace_n(x)])

@@ -1,34 +1,33 @@
 import copy
-import random
 from typing import Dict, List, Union, Callable
 from IPython.display import display, Latex
-import galois
+from parameters import F
+import numpy as np
+from collections.abc import Iterable
 
 class MVLinear:
     """
     A Sparse Representation of a multi-linear polynomial.
     """
 
-    def __init__(self, num_variables: int, term: Dict[int, int], p: int):
+    def __init__(self, num_variables: int, term: Dict[int, int]):
         """
         :param num_variables: total number of variables
         :param term: the terms of the polynomial. Index is the binary representation of the vector, where
         the nth bit represents the nth variable. For example, 0b1011 represents term x0x1x3. The value represents the coefficient.
-        :param p: the size of finite field
         """
 
         self.num_variables = num_variables
         self.terms: Dict[int, int] = dict()
-        self.p = p
         for k,v in term.items():
             if k >> self.num_variables > 0:
                 raise ValueError("Term is out of range.")
-            if v % p == 0:
+            if v == 0:
                 continue
             if k in self.terms:
-                self.terms[k] = (self.terms[k] + term[k]) % self.p
+                self.terms[k] = (self.terms[k] + term[k])
             else:
-                self.terms[k] = term[k] % self.p
+                self.terms[k] = term[k]
 
     def __repr__(self):
         limit = 8
@@ -55,19 +54,18 @@ class MVLinear:
 
     def __copy__(self) -> 'MVLinear':
         t = self.terms.copy()
-        return MVLinear(self.num_variables, t, self.p)
+        return MVLinear(self.num_variables, t)
 
     __deepcopy__ = __copy__
 
     def _assert_same_type(self, other: 'MVLinear'):
         if not isinstance(other, MVLinear):
+            print(type(other))
             raise TypeError("MVLinear can only be added with MVLinear")
-        if other.p != self.p:
-            raise TypeError("The function being added is not in the same field. ")
 
     def __add__(self, other: Union['MVLinear', int]) -> 'MVLinear':
         if type(other) is int:
-            other = MVLinear(self.num_variables, {0b0: other}, self.p)
+            other = MVLinear(self.num_variables, {0b0: other})
         self._assert_same_type(other)
 
         ans: MVLinear = copy.copy(self)
@@ -75,11 +73,11 @@ class MVLinear:
 
         for k in other.terms:
             if k in self.terms:
-                ans.terms[k] = (ans.terms[k] + other.terms[k]) % self.p
+                ans.terms[k] = (ans.terms[k] + other.terms[k])
                 if ans.terms[k] == 0:
                     ans.terms.pop(k)
             else:
-                ans.terms[k] = other.terms[k] % self.p
+                ans.terms[k] = other.terms[k]
 
         return ans
 
@@ -87,7 +85,7 @@ class MVLinear:
 
     def __sub__(self, other: Union['MVLinear', int]) -> 'MVLinear':
         if type(other) is int:
-            other = MVLinear(self.num_variables, {0b0: other}, self.p)
+            other = MVLinear(self.num_variables, {0b0: other})
         self._assert_same_type(other)
 
         ans: MVLinear = copy.copy(self)
@@ -95,11 +93,11 @@ class MVLinear:
 
         for k in other.terms:
             if k in self.terms:
-                ans.terms[k] = (ans.terms[k] - other.terms[k]) % self.p
+                ans.terms[k] = (ans.terms[k] - other.terms[k])
                 if ans.terms[k] == 0:
                     ans.terms.pop(k)
             else:
-                ans.terms[k] = (- other.terms[k]) % self.p
+                ans.terms[k] = (- other.terms[k])
 
         return ans
 
@@ -108,12 +106,14 @@ class MVLinear:
 
     def __rsub__(self, other):
         if type(other) is int:
-            other = MVLinear(self.num_variables, {0b0: other}, self.p)
+            other = MVLinear(self.num_variables, {0b0: other})
         return other - self
 
     def __mul__(self, other: Union['MVLinear', int]) -> 'MVLinear':
         if type(other) is int:
-            other = MVLinear(self.num_variables, {0b0: other}, self.p)
+            other = MVLinear(self.num_variables, {0b0: F(other)})
+        if isinstance(other, F):
+            other = MVLinear(self.num_variables, {0b0: other})
         self._assert_same_type(other)
 
         terms: Dict[int, int] = dict()
@@ -124,30 +124,30 @@ class MVLinear:
                     raise ArithmeticError("The product is no longer multi-linear function.")
                 nk = sk + ok  # the result term
                 if nk in terms:
-                    terms[nk] = (terms[nk] + self.terms[sk] * other.terms[ok]) % self.p
+                    terms[nk] = (terms[nk] + self.terms[sk] * other.terms[ok])
                 else:
-                    terms[nk] = (self.terms[sk] * other.terms[ok]) % self.p
+                    terms[nk] = (self.terms[sk] * other.terms[ok])
                 if terms[nk] == 0:
                     terms.pop(nk)
 
-        ans = MVLinear(max(self.num_variables, other.num_variables), terms, self.p)
+        ans = MVLinear(max(self.num_variables, other.num_variables), terms,)
         return ans
 
     __rmul__ = __mul__  # commutative
 
     def eval(self, at: List[int]) -> int:
-        s = 0
+        s = F(0)
         for term in self.terms:
             i = 0
             val = self.terms[term]
             while term != 0:
                 if term & 1 == 1:
-                    val = (val * (at[i] % self.p)) % self.p
+                    val = (val * at[i])
                 if val == 0:
                     break
                 term >>= 1
                 i += 1
-            s = (s + val) % self.p
+            s = (s + val)
 
         return s
 
@@ -169,10 +169,14 @@ class MVLinear:
             return self.eval([])
         if isinstance(args[0], list):
             return self.eval(args[0])
+        if isinstance(args[0], np.ndarray):
+            return self.eval(args[0])
         if isinstance(args[0], set):
             if len(args[0]) != 1:
                 raise TypeError("Binary representation should have only one element. ")
             return self.eval_bin(next(iter(args[0])))
+        if isinstance(args[0], Iterable):
+            return self.eval(args[0])
         return self.eval(list(args))
 
     def latex(self):
@@ -215,13 +219,13 @@ class MVLinear:
         for t, v in self.terms.items():
             for k in range(s):
                 if t & (1 << k) > 0:
-                    v = v * (args[k] % self.p) % self.p
+                    v = v * (args[k])
                     t = t & ~(1 << k)
             t_shifted = t >> s
             if t_shifted not in new_terms:
                 new_terms[t_shifted] = 0
-            new_terms[t_shifted] = (new_terms[t_shifted] + v) % self.p
-        return MVLinear(self.num_variables - len(args), new_terms, self.p)
+            new_terms[t_shifted] = (new_terms[t_shifted] + v)
+        return MVLinear(self.num_variables - len(args), new_terms)
 
     def collapse_left(self, n: int) -> 'MVLinear':
         """
@@ -235,7 +239,7 @@ class MVLinear:
             if t & mask > 0:
                 raise ArithmeticError("Cannot collapse: Variable exist. ")
             new_terms[t >> n] = v
-        return MVLinear(self.num_variables - n, new_terms, self.p)
+        return MVLinear(self.num_variables - n, new_terms)
 
     def collapse_right(self, n: int) -> 'MVLinear':
         """
@@ -250,31 +254,17 @@ class MVLinear:
             if t & mask > 0:
                 raise ArithmeticError("Cannot collapse: Variable exist. ")
             new_terms[t & anti_mask] = v
-        return MVLinear(self.num_variables - n, new_terms, self.p)
+        return MVLinear(self.num_variables - n, new_terms)
 
-def makeMVLinearConstructor(num_variables: int, p: int) -> Callable[[Dict[int, int]], MVLinear]:
+def makeMVLinearConstructor(num_variables: int) -> Callable[[Dict[int, int]], MVLinear]:
     """
     Return a function that outputs MVLinear
     :param num_variables: total number of variables
-    :param p: size of the field
     :return: Callable[[Dict[int, int]], MVLinear]
     """
 
     def f(term: Dict[int, int]) -> MVLinear:
-        return MVLinear(num_variables, term, p)
+        return MVLinear(num_variables, term)
 
     return f
 
-
-def randomMVLinear(num_variables: int, prime: int = 0, prime_bit_length: int = 128) -> MVLinear:
-    num_terms = 2 ** num_variables
-    prime = randomPrime(prime_bit_length) if prime == 0 else prime
-    m = makeMVLinearConstructor(num_variables, prime)
-    d: Dict[int, int] = dict()
-    for _ in range(num_terms):
-        d[random.randint(0, 2 ** num_variables - 1)] = random.randint(0, prime - 1)
-    return m(d)
-
-
-def randomPrime(size: int) -> int:
-    return galois.random_prime(size-1)

@@ -1,4 +1,3 @@
-import random
 import galois
 import itertools
 import CNF3
@@ -7,11 +6,15 @@ import numpy as np
 from enum import Enum
 from auxiliary import get_delimiters, int_get_bits, prod
 from TensorCode import TensorCode, LinCode
-from LDE import lde, I
+#from LDE import lde, I
+from MVL_LDE import I, lde
 from CNF3 import witness, clause
 from parameters import phi, z, tensor_code, NUM_ROWS_TO_CHECK, F, baseSubset
 
 Status = Enum('Status', ['IN_PROCCESS', 'ACC', 'REJ'])
+
+if 'DEBUG' in dir(parameters):
+    np.random.seed(123456789)
 
 
 class ProofException(Exception):
@@ -82,17 +85,18 @@ class AllZeroVerifier:
             self.z = self.randomFieldElementVector(self.gf, self.m)
             return self.z
         else:
-            tmp0, tmp1 = polynomial(0), polynomial(1)
+            tmp0, tmp1 = polynomial(F(0)), polynomial(F(1))
             if not (tmp0 + tmp1 == self.alpha):
                 self.status = Status.REJ
                 return
                 # self.m -= 1
             r_i = self.randomFieldElementVector(self.gf, 1)
             self.rs.append(r_i)
-            if self.m - len(self.rs) == 0:
+            if self.m == len(self.rs):
                 self.status = Status.ACC
             self.alpha = polynomial(r_i)
-            return r_i
+            #print(f'{self.alpha=}')
+            return r_i # in tha last phase, maybe return alpha (as the value of Qz(r_s))?
 
 
 class AllZeroProver:
@@ -104,11 +108,11 @@ class AllZeroProver:
 
         phi_hat = lde(f=phi, H=baseSubset, m=int(3 * np.ceil(np.log2(n)) + 3))
         w_hat = lde(f=witness(w), H=baseSubset, m=int(np.ceil(np.log2(n))))
-
+        pass
         # calculate p
 
         def P(*args):
-            i1, i2, i3, b1, b2, b3 = CNF3.convert_args(args, to_bits=True)
+            i1, i2, i3, b1, b2, b3 = CNF3.convert_args(args, to_bits=True, to_int=True)
             phi_hat_res = phi_hat(args)
             w1, w2, w3 = (w_hat(i1) - gf(b1)), (w_hat(i2) - gf(b2)), (w_hat(i3) - gf(b3))
             return phi_hat_res * w1 * w2 * w3
@@ -119,6 +123,8 @@ class AllZeroProver:
         self.round = 0
         self.Q = None
         self.rs = []
+        self.z = None
+        self.I=None
 
     @staticmethod
     def intToBits(i):
@@ -130,12 +136,13 @@ class AllZeroProver:
     def receive(self, z):
         # do the all zero calculation and return the polynomial.
         if self.round == 0:
-            self.Q = lambda *args: self.P(*args) * I(args, z, H=baseSubset, m=self.m)
+            self.z=z
+            self.I = I(self.z, self.m)
+            self.Q = lambda *args: self.P(*args) * self.I(args)
         else:
             self.rs.append(z)
         self.round += 1
-        self.m -= 1
-        return lambda x: self.sumGF2(self.rs.copy(), x, self.m)  # Q tilda
+        return lambda x: self.sumGF2(self.rs.copy(), x, self.m-self.round)  # Q tilda
 
 
 class AllZeroProof:
@@ -157,9 +164,11 @@ class AllZeroProof:
             # verifier
             r_i = self.V.receive(Q)
             round_count += 1
+            #print(f'{len(self.V.rs)=}\n{self.V.rs}')
         if self.V.status is Status.REJ:
             raise ProofException(f'2, {round_count}')
-        return self.V.z, self.V.rs, self.Q
+        print(f'allZeroProof.V.alpha = {F(self.V.alpha)}')
+        return self.V.z, self.V.rs, self.V.alpha
 
 
 # Phase 3 structures:
@@ -177,7 +186,7 @@ class LinVerifier_aux:
         w (formula) is encoded using code to obtain codeword
     '''
 
-    def __init__(self, n, index_value, codeword: LinCode):
+    def __init__(self, n, index_value, codeword: np.ndarray):
         print('codeword: ' + str(codeword))
         # self.code_word = tensor_code.get_word(codeword)
         self.code_word = codeword
@@ -189,11 +198,11 @@ class LinVerifier_aux:
         for _ in range(NUM_ROWS_TO_CHECK):
             index = tuple(np.random.randint(dim) for dim in self.code_word.shape[:-1])
             # last_dim_sum = self.delimiter_vecs[0] @ self.code_word[:, index]
-            last_dim_sum = np.array([element[0] for element in delimiter_vec[0]]) @ self.code_word[:, index]
+            last_dim_sum = F([element[0] for element in self.delimiter_vecs[0]]) @ F(self.code_word[:, index])
             if last_dim_sum != partial_sums[(index,)]:
                 self.status = Status.REJ
                 return
-        value = self.delimiter_vecs[-1] @ partial_sums
+        value = F([element[0] for element in self.delimiter_vecs[-1]]) @ partial_sums
         self.status = Status.ACC
         return value
 
@@ -203,7 +212,7 @@ class LinVerifier:
         IP for verifing that indeed Q_z(rs) equals Q(rs) sent by the all-zero prover in the last phase
     '''
 
-    def __init__(self, n, formula, codeword: LinCode, z, r_s, Q):
+    def __init__(self, n, formula, codeword: LinCode, z, r_s, alpha):
         self.n = n
         self.r_s = r_s
         self.m = int(3 * np.ceil(np.log2(self.n)) + 3)
@@ -212,19 +221,18 @@ class LinVerifier:
         self.b_s = tuple(a for a in r_s[-3:])
         size = len(r_s[:-3]) // 3
         self.i_s = tuple(r_s[i * size: (i + 1) * size] for i in range(3))
-        self.w_is = [None] * 3
+        self.w_is = []
         self.z = z
         self.codeword = tensor_code.get_word(codeword)
         self.counter = 0
-        self.Q = Q
         self.status = Status.IN_PROCCESS
-        # maybe remove
-        self.final_value = self.Q(self.r_s)
+        self.final_value = alpha
 
         if 'DEBUG' in dir(parameters):
+            pass
             # print all rellevent data
-            print(f'{self.n=}\n{self.r_s=}\n{self.m=}\n{self.formula=}\n{self.b_s=}\n{self.i_s=}')
-            print(f'{self.z=}\n{self.codeword=}\n{self.final_value=}')
+            #print(f'{self.n=}\n{self.r_s=}\n{size}\n{self.m=}\n{self.formula=}\n{self.b_s=}\n{self.i_s=}')
+            #print(f'{self.z=}\n{self.codeword=}\n{self.final_value=}')
 
     def receive(self, partial_sums):
         if self.status == Status.REJ: return
@@ -236,7 +244,10 @@ class LinVerifier:
             return
         self.counter += 1
         if self.counter >= 3:
-            Qz = self.phi_hat(self.r_s) * (prod(wi - bi for wi, bi in zip(self.w_is, self.b_s))) * I(self.r_s, self.z)
+            print(f'{self.w_is=}')
+            Qz = self.phi_hat(self.r_s) * (prod(wi - bi for wi, bi in zip(self.w_is, self.b_s))) * I(self.z,self.m).eval(self.r_s)
+            print(f'{Qz = }')
+            print(f'final value = {self.final_value}')
             if Qz != self.final_value:
                 self.status = Status.REJ
                 return
@@ -249,21 +260,22 @@ class LinProver:
         size = len(r_s[:-3]) // 3
         self.i_s = tuple(r_s[i * size: (i + 1) * size] for i in range(3))
         if 'DEBUG' in dir(parameters):
-            print(f'{self.i_s=}')
+            pass
+            #print(f'{self.i_s=}')
         self.delimiters = tuple(get_delimiters(index_value) for index_value in self.i_s)
         self.counter = 0
 
     def receive(self):
-        print('self.delimiters: ' + str(self.delimiters))
+        #print('self.delimiters: ' + str(self.delimiters))
         delimiter_vec = self.delimiters[self.counter]
         self.counter += 1
-        print('delimiter_vec: ' + str(delimiter_vec))
-        print('self.code_word: ' + str(self.code_word))
-        print('delimiter_vec[0]: ' + str(delimiter_vec[0]))
-        print('self.code_word: ' + str(self.code_word))
+        #print('delimiter_vec: ' + str(delimiter_vec))
+        #print('self.code_word: ' + str(self.code_word))
+        #print('delimiter_vec[0]: ' + str(delimiter_vec[0]))
+        #print('self.code_word: ' + str(self.code_word))
         # return delimiter_vec[0] @ self.code_word
-        print('np.array([element[0] for element in delimiter_vec[0]]): ' + str(np.array([element[0] for element in delimiter_vec[0]])))
-        return np.array([element[0] for element in delimiter_vec[0]]) @ self.code_word
+        #print('np.array([element[0] for element in delimiter_vec[0]]): ' + str(np.array([element[0] for element in delimiter_vec[0]])))
+        return F([element[0] for element in delimiter_vec[0]]) @ F(self.code_word)
 
 
 class LinProof:
@@ -302,10 +314,10 @@ class MainProof:
         codeword = self.codeword_proof.prove()
         # phase 2
         print('phase 2')
-        z, r_s, Q = self.all_zero_proof.prove()
+        z, r_s, alpha = self.all_zero_proof.prove()
         # phase 3
         print('phase 3')
-        self.lin_proof = LinProof(self.n, self.formula, codeword, z, r_s, Q)
+        self.lin_proof = LinProof(self.n, self.formula, codeword, z, r_s, alpha)
         self.lin_proof.prove()
 
 

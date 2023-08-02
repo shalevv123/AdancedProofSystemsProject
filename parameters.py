@@ -23,4 +23,5 @@ NUM_ROWS_TO_CHECK = 3
 
 phi = [(1,2,3), (-2, 4,3), (-1, 2, -3)] # w.l.o.g the variables are numberd from 1 to n
 z = [1, 0, 1, 1] # the assignment is a list (or a tuple) of length n
+# for all i \in [1, n-1] z[i] is the assignment of i. z[0] is the assignment of n
 n = count_vars(phi)
