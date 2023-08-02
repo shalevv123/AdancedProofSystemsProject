@@ -75,6 +75,8 @@ class AllZeroVerifier:
 
     @staticmethod
     def randomFieldElementVector(gf, m=1):
+        if m == 1:
+            return gf(np.random.randint(0, gf.order, dtype=int))
         return gf(np.random.randint(0, gf.order, m, dtype=int))
 
     def receive(self, polynomial):
@@ -167,7 +169,7 @@ class AllZeroProof:
             #print(f'{len(self.V.rs)=}\n{self.V.rs}')
         if self.V.status is Status.REJ:
             raise ProofException(f'2, {round_count}')
-        print(f'allZeroProof.V.alpha = {F(self.V.alpha)}')
+        #print(f'allZeroProof.V.alpha = {F(self.V.alpha)}')
         return self.V.z, self.V.rs, self.V.alpha
 
 
@@ -187,22 +189,23 @@ class LinVerifier_aux:
     '''
 
     def __init__(self, n, index_value, codeword: np.ndarray):
-        print('codeword: ' + str(codeword))
+        #print('codeword: ' + str(codeword))
         # self.code_word = tensor_code.get_word(codeword)
         self.code_word = codeword
-        self.delimiter_vecs = get_delimiters(index_value)  # 2-D
+        self.delimiter_vecs = F(get_delimiters(index_value))  # 2-D
+        #print(f'{self.delimiter_vecs}')
         self.index_value = index_value
         self.status = Status.IN_PROCCESS
 
     def receive(self, partial_sums):
         for _ in range(NUM_ROWS_TO_CHECK):
-            index = tuple(np.random.randint(dim) for dim in self.code_word.shape[:-1])
+            index = np.random.randint(self.code_word.shape[:-1][0])
             # last_dim_sum = self.delimiter_vecs[0] @ self.code_word[:, index]
-            last_dim_sum = F([element[0] for element in self.delimiter_vecs[0]]) @ F(self.code_word[:, index])
+            last_dim_sum = F(self.code_word[index,:]) @ self.delimiter_vecs[0]
             if last_dim_sum != partial_sums[(index,)]:
                 self.status = Status.REJ
                 return
-        value = F([element[0] for element in self.delimiter_vecs[-1]]) @ partial_sums
+        value = partial_sums @ self.delimiter_vecs[-1]
         self.status = Status.ACC
         return value
 
@@ -244,10 +247,10 @@ class LinVerifier:
             return
         self.counter += 1
         if self.counter >= 3:
-            print(f'{self.w_is=}')
+            #print(f'{self.w_is=}')
             Qz = self.phi_hat(self.r_s) * (prod(wi - bi for wi, bi in zip(self.w_is, self.b_s))) * I(self.z,self.m).eval(self.r_s)
-            print(f'{Qz = }')
-            print(f'final value = {self.final_value}')
+            #print(f'{Qz = }')
+            #print(f'final value = {self.final_value}')
             if Qz != self.final_value:
                 self.status = Status.REJ
                 return
@@ -262,7 +265,7 @@ class LinProver:
         if 'DEBUG' in dir(parameters):
             pass
             #print(f'{self.i_s=}')
-        self.delimiters = tuple(get_delimiters(index_value) for index_value in self.i_s)
+        self.delimiters = tuple(F(get_delimiters(index_value)) for index_value in self.i_s)
         self.counter = 0
 
     def receive(self):
@@ -275,7 +278,7 @@ class LinProver:
         #print('self.code_word: ' + str(self.code_word))
         # return delimiter_vec[0] @ self.code_word
         #print('np.array([element[0] for element in delimiter_vec[0]]): ' + str(np.array([element[0] for element in delimiter_vec[0]])))
-        return F([element[0] for element in delimiter_vec[0]]) @ F(self.code_word)
+        return F(self.code_word) @ delimiter_vec[0]
 
 
 class LinProof:

@@ -2,6 +2,7 @@ import numpy as np
 import functools
 import LDE
 
+
 def fancy_zip(l1, l2):
     i = 0
     for e1, e2 in zip(l1, l2):

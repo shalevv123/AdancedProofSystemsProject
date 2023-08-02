@@ -10,6 +10,7 @@ from polynomial import MVLinear as MVL
 from itertools import product
 import functools
 
+
 def I(h,n):
     return functools.reduce(lambda a,b: a*b, (MVL(n, {1<<i:-F(1), 0:F(1)-F(h[i])}) for i in range(n)))
 
