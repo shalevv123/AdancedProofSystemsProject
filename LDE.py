@@ -1,7 +1,6 @@
 import functools
 import itertools
 import concurrent.futures
-import galois
 from parameters import F
 
 

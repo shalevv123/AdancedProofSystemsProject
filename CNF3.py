@@ -1,4 +1,4 @@
-from parameters import n,F
+from parameters import n
 
 def convert(args):
     return int("0b"+''.join(str(i) for i in args), base=0)

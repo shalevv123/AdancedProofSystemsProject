@@ -1,20 +1,15 @@
-import galois
 import itertools
 import CNF3
 import parameters
 import numpy as np
 from enum import Enum
-from auxiliary import get_delimiters, int_get_bits, prod
-from TensorCode import TensorCode, LinCode
-#from LDE import lde, I
+from auxiliary import get_delimiters, prod, get_phi_lde
+from TensorCode import LinCode
 from MVL_LDE import I, lde
 from CNF3 import witness, clause
 from parameters import phi, z, tensor_code, NUM_ROWS_TO_CHECK, F, baseSubset
 
 Status = Enum('Status', ['IN_PROCCESS', 'ACC', 'REJ'])
-
-if 'DEBUG' in dir(parameters):
-    np.random.seed(123456789)
 
 
 class ProofException(Exception):
@@ -31,7 +26,6 @@ class CodeWordVerifier:
 
     def receive(self, codeword):
         if self.code.test(codeword) is False:
-            # raise ProofException('This is a cheaty prover')
             self.status = Status.REJ
             return
         self.status = Status.ACC
@@ -91,14 +85,12 @@ class AllZeroVerifier:
             if not (tmp0 + tmp1 == self.alpha):
                 self.status = Status.REJ
                 return
-                # self.m -= 1
             r_i = self.randomFieldElementVector(self.gf, 1)
             self.rs.append(r_i)
             if self.m == len(self.rs):
                 self.status = Status.ACC
             self.alpha = polynomial(r_i)
-            #print(f'{self.alpha=}')
-            return r_i # in tha last phase, maybe return alpha (as the value of Qz(r_s))?
+            return r_i
 
 
 class AllZeroProver:
@@ -107,8 +99,9 @@ class AllZeroProver:
 
         def phi(*args):
             return clause(formula, *args)
+        
 
-        phi_hat = lde(f=phi, H=baseSubset, m=int(3 * np.ceil(np.log2(n)) + 3))
+        phi_hat = get_phi_lde(formula, n)
         w_hat = lde(f=witness(w), H=baseSubset, m=int(np.ceil(np.log2(n))))
         pass
         # calculate p
@@ -166,10 +159,8 @@ class AllZeroProof:
             # verifier
             r_i = self.V.receive(Q)
             round_count += 1
-            #print(f'{len(self.V.rs)=}\n{self.V.rs}')
         if self.V.status is Status.REJ:
             raise ProofException(f'2, {round_count}')
-        #print(f'allZeroProof.V.alpha = {F(self.V.alpha)}')
         return self.V.z, self.V.rs, self.V.alpha
 
 
@@ -189,18 +180,14 @@ class LinVerifier_aux:
     '''
 
     def __init__(self, n, index_value, codeword: np.ndarray):
-        #print('codeword: ' + str(codeword))
-        # self.code_word = tensor_code.get_word(codeword)
         self.code_word = codeword
         self.delimiter_vecs = F(get_delimiters(index_value))  # 2-D
-        #print(f'{self.delimiter_vecs}')
         self.index_value = index_value
         self.status = Status.IN_PROCCESS
 
     def receive(self, partial_sums):
         for _ in range(NUM_ROWS_TO_CHECK):
             index = np.random.randint(self.code_word.shape[:-1][0])
-            # last_dim_sum = self.delimiter_vecs[0] @ self.code_word[:, index]
             last_dim_sum = F(self.code_word[index,:]) @ self.delimiter_vecs[0]
             if last_dim_sum != partial_sums[(index,)]:
                 self.status = Status.REJ
@@ -220,7 +207,7 @@ class LinVerifier:
         self.r_s = r_s
         self.m = int(3 * np.ceil(np.log2(self.n)) + 3)
         self.formula = formula
-        self.phi_hat = lde(lambda *args: clause(self.formula, *args), H=baseSubset, m=self.m)
+        self.phi_hat = get_phi_lde(formula, n)
         self.b_s = tuple(a for a in r_s[-3:])
         size = len(r_s[:-3]) // 3
         self.i_s = tuple(r_s[i * size: (i + 1) * size] for i in range(3))
@@ -230,12 +217,6 @@ class LinVerifier:
         self.counter = 0
         self.status = Status.IN_PROCCESS
         self.final_value = alpha
-
-        if 'DEBUG' in dir(parameters):
-            pass
-            # print all rellevent data
-            #print(f'{self.n=}\n{self.r_s=}\n{size}\n{self.m=}\n{self.formula=}\n{self.b_s=}\n{self.i_s=}')
-            #print(f'{self.z=}\n{self.codeword=}\n{self.final_value=}')
 
     def receive(self, partial_sums):
         if self.status == Status.REJ: return
@@ -247,10 +228,7 @@ class LinVerifier:
             return
         self.counter += 1
         if self.counter >= 3:
-            #print(f'{self.w_is=}')
             Qz = self.phi_hat(self.r_s) * (prod(wi - bi for wi, bi in zip(self.w_is, self.b_s))) * I(self.z,self.m).eval(self.r_s)
-            #print(f'{Qz = }')
-            #print(f'final value = {self.final_value}')
             if Qz != self.final_value:
                 self.status = Status.REJ
                 return
@@ -262,22 +240,12 @@ class LinProver:
         self.code_word = tensor_code.get_word(code_word)
         size = len(r_s[:-3]) // 3
         self.i_s = tuple(r_s[i * size: (i + 1) * size] for i in range(3))
-        if 'DEBUG' in dir(parameters):
-            pass
-            #print(f'{self.i_s=}')
         self.delimiters = tuple(F(get_delimiters(index_value)) for index_value in self.i_s)
         self.counter = 0
 
     def receive(self):
-        #print('self.delimiters: ' + str(self.delimiters))
         delimiter_vec = self.delimiters[self.counter]
         self.counter += 1
-        #print('delimiter_vec: ' + str(delimiter_vec))
-        #print('self.code_word: ' + str(self.code_word))
-        #print('delimiter_vec[0]: ' + str(delimiter_vec[0]))
-        #print('self.code_word: ' + str(self.code_word))
-        # return delimiter_vec[0] @ self.code_word
-        #print('np.array([element[0] for element in delimiter_vec[0]]): ' + str(np.array([element[0] for element in delimiter_vec[0]])))
         return F(self.code_word) @ delimiter_vec[0]
 
 
